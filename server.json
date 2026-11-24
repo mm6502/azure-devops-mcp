@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
   "name": "io.github.mm6502/azure-devops-mcp",
   "description": "MCP server for Azure DevOps Server (on-premise) with Windows integrated auth support.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "title": "Azure DevOps On-Prem",
   "repository": {
     "url": "https://github.com/mm6502/azure-devops-mcp",
