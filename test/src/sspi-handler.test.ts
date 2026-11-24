@@ -11,6 +11,7 @@ jest.mock("../../src/logger", () => ({
   },
 }));
 
+import * as winSso from "win-sso";
 import { SspiRequestHandler, createSspiHandler } from "../../src/sspi-handler";
 
 // Mock win-sso module
@@ -156,5 +157,42 @@ describe("createSspiHandler", () => {
     Object.defineProperty(process, "platform", { value: "win32" });
     const handler = await createSspiHandler("https://server/tfs/col");
     expect(handler).toBeInstanceOf(SspiRequestHandler);
+  });
+
+  it("should fail early with an SSPI error when the win-sso native module did not load", async () => {
+    Object.defineProperty(process, "platform", { value: "win32" });
+    (winSso.WinSso as unknown as jest.Mock).mockImplementationOnce(() => {
+      throw new TypeError("Cannot read properties of undefined (reading 'createAuthContext')");
+    });
+    await expect(createSspiHandler("https://server/tfs/col")).rejects.toThrow(/SSPI authentication unavailable.*native module/);
+  });
+});
+
+describe("ELECTRON_RUN_AS_NODE handling", () => {
+  const original = process.env.ELECTRON_RUN_AS_NODE;
+  const originalElectronVersion = process.versions.electron;
+
+  afterEach(() => {
+    if (original === undefined) delete process.env.ELECTRON_RUN_AS_NODE;
+    else process.env.ELECTRON_RUN_AS_NODE = original;
+    Object.defineProperty(process.versions, "electron", { value: originalElectronVersion, configurable: true });
+  });
+
+  // node-gyp-build treats ELECTRON_RUN_AS_NODE as "running in Electron" and then cannot find the win-sso prebuild
+  it("should clear ELECTRON_RUN_AS_NODE when not running inside Electron", async () => {
+    process.env.ELECTRON_RUN_AS_NODE = "1";
+    await jest.isolateModulesAsync(async () => {
+      await import("../../src/sspi-handler");
+    });
+    expect(process.env.ELECTRON_RUN_AS_NODE).toBeUndefined();
+  });
+
+  it("should keep ELECTRON_RUN_AS_NODE when running inside Electron", async () => {
+    process.env.ELECTRON_RUN_AS_NODE = "1";
+    Object.defineProperty(process.versions, "electron", { value: "30.0.0", configurable: true });
+    await jest.isolateModulesAsync(async () => {
+      await import("../../src/sspi-handler");
+    });
+    expect(process.env.ELECTRON_RUN_AS_NODE).toBe("1");
   });
 });

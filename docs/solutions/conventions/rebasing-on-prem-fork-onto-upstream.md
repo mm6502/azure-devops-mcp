@@ -128,6 +128,13 @@ npm install                               # regenerate a coherent lockfile (auth
 
 The `npm install` regeneration is what actually matters; the checkout just gives it a clean starting point.
 
+The fork ships `npm-shrinkwrap.json` (see the fork-management doc, section 7) so that `npx github:` installs honor pinned versions. After the lockfile is regenerated, convert it back and keep `win-sso` pinned to an exact version in `package.json`:
+
+```bash
+npm install --package-lock-only
+npm shrinkwrap                            # renames package-lock.json -> npm-shrinkwrap.json
+```
+
 ### Rule 6 — Verify without hanging the terminal
 
 Prefer the editor's language server (get-errors) and a single `npm test` run for verification. A full-project `npx tsc` type-check is slow and can hold the terminal open, which looks like a hang. Never leave a watch-mode or full `tsc` running as a "check".

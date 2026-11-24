@@ -53,6 +53,13 @@ Example
 
    You can also use [Domains](../README.md?tab=readme-ov-file#-using-domains) as a way to limit the number of tools you load for the Azure DevOps MCP Server.
 
+5. **Server exits with code 1 right after start (on-prem, `--authentication sspi`)**
+   - **`ELECTRON_RUN_AS_NODE=1` in the server environment**: some hosts (VS Code agent hosts) pass this variable. `node-gyp-build` then looks for an Electron build of `win-sso` and the native module fails to load. The server now clears the variable on startup when it is not running inside Electron. If you run an older build, set `"command": "cmd"` with `"args": ["/d", "/c", "set ELECTRON_RUN_AS_NODE=&& npx -y ..."]`.
+   - **Corrupted npx cache** (`npm warn tar TAR_ENTRY_INVALID checksum failure`, `TAR_BAD_ARCHIVE`): remove `%LOCALAPPDATA%\npm-cache\_npx` and run `npm cache clean --force`. Concurrent first starts of the same `github:` package from several MCP servers or sessions can corrupt the cache. Installing once globally (`npm i -g github:DITEC-Mracka/azure-devops-mcp#ditec`) and starting `node <global-prefix>\node_modules\@azure-devops\mcp\dist\index.js` avoids re-downloading ~200 packages on every cache miss.
+   - **`--use-system-ca` in `NODE_OPTIONS`** requires Node.js 22.15+ (or 23.8+). Older Node versions fail with `--use-system-ca is not allowed in NODE_OPTIONS`.
+   - **Running from a clone** (`node <clone>\dist\index.js`): run `npm ci` first, otherwise Node fails with `ERR_MODULE_NOT_FOUND`.
+   - **No logs in the VS Code Output panel**: the server writes logs only to stderr. Run it manually in a terminal to see them, or redirect stderr to a file (`cmd /c node ... 2>%TEMP%\ado-mcp.log`).
+
 ## Project-Specific Issues
 
 1. **npm Authentication Issues for Remote Access**

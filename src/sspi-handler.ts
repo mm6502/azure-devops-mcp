@@ -7,6 +7,13 @@ import net from "net";
 import type { IHttpClient, IHttpClientResponse, IRequestHandler, IRequestInfo } from "typed-rest-client/Interfaces.js";
 import { logger } from "./logger.js";
 
+// Some MCP hosts (e.g. VS Code agent hosts) launch servers with ELECTRON_RUN_AS_NODE=1. node-gyp-build then
+// looks for an Electron prebuild of win-sso, finds none, and the native module silently fails to load.
+// This must run before win-sso is imported (all imports of it are dynamic).
+if (!process.versions.electron) {
+  delete process.env.ELECTRON_RUN_AS_NODE;
+}
+
 /**
  * SSPI-based Negotiate/NTLM authentication handler for on-prem Azure DevOps Server.
  * Uses `win-sso` for Windows integrated authentication (SSPI).
@@ -244,6 +251,13 @@ export async function createSspiHandler(serverUrl: string): Promise<SspiRequestH
     const winSso = await import("win-sso");
     if (!winSso.osSupported()) {
       throw new Error("OS not supported");
+    }
+    // win-sso swallows native load failures and only breaks on first use, so probe it here
+    try {
+      new winSso.WinSso("Negotiate", "localhost", undefined, undefined).freeAuthContext();
+    } catch (probeError) {
+      const probeMsg = probeError instanceof Error ? probeError.message : String(probeError);
+      throw new Error(`win-sso native module failed to load (${probeMsg})`);
     }
     logger.debug("SSPI: win-sso loaded successfully, platform supported");
   } catch (error) {

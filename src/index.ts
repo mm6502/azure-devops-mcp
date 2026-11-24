@@ -339,6 +339,10 @@ async function main() {
       const checkUrl = `${orgUrl}/_apis/connectionData`;
 
       if (effectiveAuthType === "sspi") {
+        // Validate SSPI handler first (catches native module and domain-join issues before the fetch interceptor hits them)
+        if (!sspiHandler) {
+          sspiHandler = await createSspiHandler(orgUrl);
+        }
         // For SSPI, verify server is reachable (actual auth happens via WebApi on first API call)
         const response = await fetch(checkUrl, {
           method: "GET",
@@ -361,10 +365,6 @@ async function main() {
           });
         } else {
           logger.info("On-prem server reachable (SSPI auth will negotiate on first API call)", { serverUrl: orgUrl });
-        }
-        // Validate SSPI handler can be created (catches domain-join issues early)
-        if (!sspiHandler) {
-          sspiHandler = await createSspiHandler(orgUrl);
         }
       } else {
         const token = await authenticator();
