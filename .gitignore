@@ -136,3 +136,6 @@ out
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# personal MCP client config for running the server from a clone (see README, Development)
+.mcp.json

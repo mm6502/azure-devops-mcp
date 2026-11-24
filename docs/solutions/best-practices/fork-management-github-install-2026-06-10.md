@@ -1,102 +1,78 @@
 ---
-title: "Fork management strategy for direct GitHub install"
+title: "Fork management: branches, npm release and installation"
 module: build-and-deploy
 date: 2026-06-10
 problem_type: best_practice
 component: tooling
 severity: medium
 applies_when:
-  - Forking an npm package from a public repo for customization
-  - Need to install MCP server directly from GitHub without npm registry
-  - Maintaining a fork that tracks upstream changes
+  - Maintaining the on-prem fork of microsoft/azure-devops-mcp
+  - Releasing a new version of @mm6502/azure-devops-mcp
+  - Changing how colleagues install or update the server
 tags:
   - fork-management
-  - github-install
-  - npx
+  - npm
+  - trusted-publishing
   - upstream-sync
   - dist-commit
 ---
 
-# Fork Management Strategy for Direct GitHub Install
+# Fork Management: Branches, npm Release and Installation
 
 ## Context
 
-We forked `microsoft/azure-devops-mcp` to `DITEC-Mracka/azure-devops-mcp` to add on-prem Azure DevOps Server support. The MCP server needs to be installable directly from the GitHub fork URL (via `npx github:DITEC-Mracka/azure-devops-mcp`) without requiring consumers to have TypeScript or other build tooling installed.
+`mm6502/azure-devops-mcp` is a fork of `microsoft/azure-devops-mcp` that adds on-prem Azure DevOps Server support (SSPI/PAT). It is published to npm as **`@mm6502/azure-devops-mcp`** with its own version series that starts at 1.0.0 and is independent of upstream versions. Upstream targets the cloud API, so it is never synced automatically: an automatic sync would overwrite the on-prem API 7.1 versions.
 
-The challenge: npm installs from git URLs do **not** install `devDependencies`, so the `prepare` script (which runs `tsc`) fails. The upstream repo has `dist/` in `.gitignore` since they publish to npm registry where tarballs already contain built JS.
+## Branches
 
-## Guidance
+| Branch     | Purpose                                                              |
+| ---------- | -------------------------------------------------------------------- |
+| `main`     | Our code and the default branch. Releases are tagged here.           |
+| `upstream` | Mirror of `microsoft/azure-devops-mcp` `main`. Updated by hand only. |
 
-### 1. Commit `dist/` in the fork
+The former install target `ditec` was removed on 2026-11-24 (it had been an alias of `main`). `github:...#ditec` links no longer work; use the npm package or `github:mm6502/azure-devops-mcp#v<version>`.
 
-Remove `dist` from `.gitignore` and commit the built JavaScript output. This is what npm registry tarballs contain — we're just keeping it in git instead.
+Local remotes: `github` (`mm6502/azure-devops-mcp`) and `microsoft` (`microsoft/azure-devops-mcp`).
 
-```gitignore
-# .gitignore — comment out or remove the dist line
-# dist - included in fork for direct GitHub install (npx github:DITEC-Mracka/azure-devops-mcp)
-```
+**Do not use "Sync fork" on GitHub.** It compares by branch name with `microsoft:main`, and "Discard commits" would delete our work.
 
-### 2. Remove build from `prepare` script
-
-The `prepare` script runs during `npm install` from git URL. Since `dist/` is already committed, consumers don't need to build. Keep `husky` for local dev:
-
-```json
-"prepare": "husky"
-```
-
-Previously: `"prepare": "npm run build && husky"`
-
-### 3. Exclude `dist/` from lint-staged
-
-Lint-staged passes staged files directly to prettier (bypassing `.prettierignore`). Exclude dist:
-
-```json
-"lint-staged": {
-  "!(dist/**)/**/*.(js|ts|jsx|tsx|json|css|md)": [
-    "npm run format"
-  ]
-}
-```
-
-### 4. Branch strategy: `main` as upstream mirror, `ditec` as custom branch
-
-GitHub's "Sync fork" button matches branches by name with the upstream repo. To make it safe:
-
-- **`main`** = clean upstream mirror (Sync fork updates this safely)
-- **`ditec`** = our changes + `dist/` (default branch, npx install target)
+Update the mirror by hand (always a fast-forward, `upstream` has no commits of its own):
 
 ```bash
-# One-time setup
-git remote add upstream https://github.com/microsoft/azure-devops-mcp.git
-git branch ditec main                         # create custom branch from current state
-git checkout main
-git reset --hard upstream/main                # main = clean upstream
-git checkout ditec
-git push origin main --force-with-lease       # push clean main
-git push origin ditec                         # push custom branch
-# On GitHub: Settings → Default branch → ditec
+git fetch microsoft main
+git push github microsoft/main:refs/heads/upstream
 ```
 
-**Why this layout:**
+Then rebase `main` onto `upstream` as described in [rebasing-on-prem-fork-onto-upstream.md](../conventions/rebasing-on-prem-fork-onto-upstream.md).
 
-- "Sync fork" on GitHub only touches `main` → never corrupts our custom code
-- `main` is always a clean upstream mirror → trivial rebase source
-- Colleagues can safely click "Sync fork" without breaking anything
+## Releasing
 
-### 5. Sync workflow (pulling new upstream changes)
+Workflow `.github/workflows/release.yml` publishes on a pushed tag `v*` with npm trusted publishing (OIDC) and provenance. No npm token is stored in the repository.
 
-```bash
-# After someone clicks "Sync fork" on GitHub, or manually:
-git fetch origin                              # get updated main
-git checkout ditec
-git rebase origin/main                        # our commits on top of new upstream
-npm run build                                 # rebuild dist/
-git add dist/
-git commit --amend --no-edit                  # update dist in last commit
-git push origin ditec --force-with-lease
-```
+1. Set the version without a git tag: `npm version <x.y.z> --no-git-tag-version`. This updates `package.json` and `npm-shrinkwrap.json` together. Set the same version by hand in `server.json` (`npm version` does not touch it; it is not part of the tarball and not published, but keep it in sync).
+2. `npm run build` regenerates `src/version.ts` and `dist/`. `dist/` is committed (direct GitHub installs and the CI version check need it).
+3. Run `npm run validate-tools`, `npm test` and `npm run format-check`; `npm pack --dry-run` must list `dist/`, `npm-shrinkwrap.json`, `LICENSE.md`, `README.md` and `package.json`.
+4. Commit and push `main`.
+5. Push **one** tag: `git tag -a v<x.y.z> -m v<x.y.z> && git push github refs/tags/v<x.y.z>`. The tag must equal the version in `package.json`. Never push tags in bulk and never move or delete a pushed tag; a failed run is fixed forward with the next patch version.
+6. Check the run of "Publish Package", then `npm view @mm6502/azure-devops-mcp version` and the provenance on the package page. Note the upstream base commit in the release notes.
 
-### 6. MCP client configuration
+Things that bit us once:
+
+- `release.yml` pins `npm@11.19.1`. npm 12 refuses `npm ci` when only `npm-shrinkwrap.json` exists, so `npm@latest` makes the release fail before the build.
+- Trusted publisher is configured on npmjs.com (user `mm6502`, repository `azure-devops-mcp`, workflow `release.yml`, direct `npm publish` allowed). A new configuration must complete a first release within 2 days.
+- A tag ruleset (`protect-release-tags`) restricts creating, changing and deleting `v*` tags to the repository admin. Package publishing access is set to "Require two-factor authentication and disallow bypass 2fa tokens".
+- The workflows "Nightly Pre-release" and "Update Package Version" are inherited from upstream and are **disabled** on GitHub (they would publish nightly versions and bump versions). After every rebase or mirror update check `gh workflow list --all` and review any new workflow with a `schedule` or publish trigger before pushing to `main`.
+- `.github/dependabot.yml` ignores `win-sso`. Version 1.4.0 moved its native prebuild, which together with `ELECTRON_RUN_AS_NODE` broke startup for fresh installs. The version is pinned to `1.3.3` in `package.json`.
+
+## Dependencies: `npm-shrinkwrap.json` instead of `package-lock.json`
+
+npm ignores `package-lock.json` for git installs and for dependents of a published package. `npm-shrinkwrap.json` is honored, so it replaces the lock file (`npm install --package-lock-only && npm shrinkwrap`) and is listed in `files` of `package.json`. After a rebase regenerate it instead of resolving conflicts by hand. `.github/workflows/build.yml` checks it for drift.
+
+## Installing
+
+The published package contains only the compiled `dist/`, but npm still has to install about 270 production dependencies on the first start (measured on Windows: 35 s to 98 s cold, about 3 s warm; for comparison `enterprise-architect-mcp` with four direct dependencies installs in about 5 s). Bundling the server into one file would shorten this; it is not done yet.
+
+Default for colleagues, updates automatically (one registry request per start, 0.1 to 0.5 s):
 
 ```json
 {
@@ -104,76 +80,23 @@ git push origin ditec --force-with-lease
     "ado": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "github:DITEC-Mracka/azure-devops-mcp#ditec", "<org>"]
+      "args": ["-y", "@mm6502/azure-devops-mcp@latest", "https://your-server/tfs/YourCollection", "--authentication", "sspi"],
+      "env": { "NODE_OPTIONS": "--use-system-ca" }
     }
   }
 }
 ```
 
-Note the `#ditec` suffix — without it, npm would fetch the default branch. Since we set `ditec` as default on GitHub, it would work without `#ditec` too, but being explicit is safer.
+Alternatives:
 
-### 7. Pin dependencies with `npm-shrinkwrap.json` (not `package-lock.json`)
+- **Pinned version** (`@mm6502/azure-devops-mcp@1.0.1`): no surprise updates; change the number to update. Use it when a new release breaks something.
+- **Global install** (`npm i -g @mm6502/azure-devops-mcp`, command `mcp-server-azuredevops`): fastest start, but updates only when someone runs the install again.
+- **Direct from GitHub** (fallback): `github:mm6502/azure-devops-mcp#v<version>`. Pin it to a tag, not to a branch.
 
-npm ignores `package-lock.json` when installing a package from a git URL, so every `npx github:...` cache miss resolves fresh versions from the ranges in `package.json`. `npm-shrinkwrap.json` is honored for git installs. This matters for native modules: `win-sso@1.4.0` (released 2026-11-16) moved its prebuild to `native/prebuilds/*/node.node`, which `node-gyp-build` does not match when `ELECTRON_RUN_AS_NODE` is set, and broke startup for fresh installs while cached ones kept working.
+`npx` does not work from a directory whose own `package.json` has the same name (this repository): it uses the local project and fails to find the binary. Use `node <clone>\dist\index.js` for development.
 
-- `win-sso` is pinned to the exact version `1.3.3` in `optionalDependencies`.
-- `npm-shrinkwrap.json` replaces `package-lock.json` (`npm install --package-lock-only && npm shrinkwrap`). After a rebase onto upstream, regenerate it instead of resolving lockfile conflicts by hand.
-- To verify a git install without publishing, `npm pack` the repo, install the tarball into an empty directory and check `node_modules/win-sso/package.json`.
+## Old installation link
 
-## Why This Matters
+`github:DITEC-Mracka/azure-devops-mcp#ditec` stopped working when the `ditec` branch was removed. The old repository name still redirects to `mm6502/azure-devops-mcp`, so `github:DITEC-Mracka/azure-devops-mcp#v<version>` works. Never create a repository named `azure-devops-mcp` under `DITEC-Mracka`; that would break the redirect.
 
-- **Without dist/ in git**: `npx github:...` fails because npm can't build without `typescript`, `@types/node`, and `shx` (devDependencies not installed for git deps)
-- **Without removing prepare build**: Even with dist/ committed, the prepare script would try to rebuild and fail
-- **Branch separation**: "Sync fork" creates merge commits on `main` — keeping custom code on a separate branch avoids merge commit pollution and keeps rebase workflow clean
-- **Rebase workflow**: Keeps our on-prem commits clearly on top of upstream, making conflicts visible and history linear
-
-## When to Apply
-
-- When forking any TypeScript npm package for internal customization
-- When the fork needs to be installable via git URL without build tooling
-- When maintaining long-lived fork that tracks upstream releases
-- When multiple people have access to the fork and might click "Sync fork"
-
-## Examples
-
-**Before (fails):**
-
-```
-$ npx github:DITEC-Mracka/azure-devops-mcp#ditec myorg
-> npm ERR! sh: tsc: command not found
-```
-
-**After (works):**
-
-```
-$ npx github:DITEC-Mracka/azure-devops-mcp#ditec myorg
-> Azure DevOps MCP Server started...
-```
-
-**Only 3 devDependencies are needed for build:**
-
-- `typescript` — the compiler
-- `@types/node` — Node.js type definitions
-- `shx` — cross-platform `chmod +x`
-
-## Avoiding "Sync fork" accidents
-
-| Situation                                    | Impact                                               |
-| -------------------------------------------- | ---------------------------------------------------- |
-| Someone clicks "Sync fork"                   | ✅ Safe — only updates `main` (upstream mirror)      |
-| Someone merges `main` into `ditec` on GitHub | ⚠️ Creates merge commit — fix with local rebase      |
-| Upstream changes same files we changed       | Rebase shows conflicts on `ditec` — resolve manually |
-
-**Recovery if someone merges main into ditec on GitHub:**
-
-```bash
-git fetch origin
-git checkout ditec
-git rebase origin/main     # recreate linear history
-npm run build
-git add dist/
-git commit --amend --no-edit
-git push origin ditec --force-with-lease
-```
-
-All other devDependencies (jest, prettier, eslint, husky, lint-staged) are for development only.
+A published tag can point at a commit that is no longer in the history of `main`: `v1.0.1` points at the commit the package was built from (its provenance names that commit), while `main` was squashed afterwards. Never move such a tag.

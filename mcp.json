@@ -3,7 +3,7 @@
     {
       "id": "ado_org",
       "type": "promptString",
-      "description": "Azure DevOps organization name  (e.g. 'contoso')"
+      "description": "Collection URL for on-prem (e.g. 'https://your-server/tfs/YourCollection') or organization name for the cloud service"
     }
   ],
   "servers": {
@@ -12,7 +12,8 @@
       "command": "mcp-server-azuredevops",
       "args": ["${input:ado_org}"],
       "env": {
-        "LOG_LEVEL": "debug"
+        "LOG_LEVEL": "debug",
+        "NODE_OPTIONS": "--use-system-ca"
       }
     }
   }

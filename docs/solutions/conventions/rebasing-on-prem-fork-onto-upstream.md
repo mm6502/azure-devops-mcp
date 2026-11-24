@@ -6,8 +6,8 @@ problem_type: convention
 component: development_workflow
 severity: high
 applies_when:
-  - "Rebasing or syncing the ditec (on-prem) fork onto microsoft/azure-devops-mcp main"
-  - "Resolving conflicts in src/utils.ts, package-lock.json, or tests after an upstream pull"
+  - "Rebasing or syncing the on-prem fork (`main`) onto microsoft/azure-devops-mcp (`upstream`)"
+  - "Resolving conflicts in src/utils.ts, npm-shrinkwrap.json, or tests after an upstream pull"
   - "Upstream bumped API versions, changed auth internals, or updated hardcoded test expectations"
   - "Upstream landed a tool-consolidation PR that restructured a module a fork fix lives in"
 symptoms:
@@ -30,7 +30,7 @@ tags:
 
 ## Context
 
-The `ditec` branch of our `DITEC-Mracka/azure-devops-mcp` fork carries on-prem Azure DevOps Server support on top of upstream `microsoft/azure-devops-mcp`. Periodically we rebase `ditec` onto the refreshed `main` mirror to pick up upstream fixes.
+The `main` branch of the `mm6502/azure-devops-mcp` fork (published to npm as `@mm6502/azure-devops-mcp`) carries on-prem Azure DevOps Server support on top of upstream `microsoft/azure-devops-mcp`. The `upstream` branch is a mirror of upstream `main` that is updated by hand (see [fork-management](../best-practices/fork-management-github-install-2026-06-10.md)). Periodically we rebase `main` onto the refreshed `upstream` to pick up upstream fixes. The former `ditec` branch (the old install target) has been removed.
 
 The friction: upstream is a **cloud-first** codebase. Several upstream changes are actively wrong for on-prem TFS, so a naive "take upstream's side" conflict resolution silently reintroduces bugs the fork already fixed. On the last rebase this happened with API versions, and cascaded into 14 failing tests plus an editor-only TypeScript error — none of which the rebase itself reported as conflicts.
 
@@ -40,13 +40,14 @@ This doc is the checklist of **what to preserve (ours) vs. take (upstream)** so 
 
 The conflict-resolution rules below are the _contract_; the outer loop is always the same repeatable, plan-first procedure. Write the per-rebase plan (topology + predicted conflicts) first, then execute it:
 
-1. **Map the topology.** `git merge-base ditec origin/main`, then `git log --oneline <base>..origin/ditec` (our commits to replay) and `<base>..origin/main` (incoming upstream). Know how many commits replay onto what.
-2. **Predict conflicts by file overlap.** Intersect `git diff --name-only <base> origin/ditec` with `git diff --name-only <base> origin/main`. The intersection _is_ your conflict list — pre-classify each against the cheat sheet before starting.
+0. **Update the mirror first** (`git fetch microsoft main`, `git push github microsoft/main:refs/heads/upstream`) and check `gh workflow list --all`: "Nightly Pre-release" and "Update Package Version" must stay disabled, and any new upstream workflow with a `schedule` or publish trigger needs review before it reaches `main`.
+1. **Map the topology.** `git merge-base main upstream`, then `git log --oneline <base>..main` (our commits to replay) and `<base>..upstream` (incoming upstream). Know how many commits replay onto what.
+2. **Predict conflicts by file overlap.** Intersect `git diff --name-only <base> main` with `git diff --name-only <base> upstream`. The intersection _is_ your conflict list — pre-classify each against the cheat sheet before starting.
 3. **Scan the incoming batch for tool consolidations** (Rule 7) — they turn small line-fixes into re-apply-by-intent work and are the highest-risk conflicts.
-4. **Safety ref, then rebase.** `git branch backup/ditec-pre-rebase-<date> origin/ditec`; `git rebase origin/main`, resolving each stop per Rules 1–7.
+4. **Safety ref, then rebase.** `git branch backup/main-pre-rebase-<date> main`; `git rebase upstream`, resolving each stop per Rules 1–7.
 5. **Regenerate, don't hand-merge.** `npm install` (lockfile, Rule 5) → `npm run build` (dist) → `npm test` → `npm run validate-tools`.
 6. **Verify intent survived.** The 7.2 grep (Rule 1) and the per-fix unique-string greps (Rule 7) are the tripwire — a green build alone does not prove the fork's fixes are still present.
-7. **Publish with a lease.** `git push --force-with-lease origin ditec` (rebase rewrites the branch; **never** plain `--force`). On rejection, inspect the concurrent push — do not force over it. Then fast-forward local `main` to `origin/main`.
+7. **Publish with a lease.** `git push --force-with-lease github main` (rebase rewrites the branch; **never** plain `--force`). On rejection, inspect the concurrent push — do not force over it.
 
 Why plan-first: the topology and overlap maps (steps 1–2) are cheap to compute and turn a blind rebase into a checklist where every stop is expected. Steps 3 and 6 exist because the dangerous failures are _silent_ (see Rule 7 and Why This Matters).
 
@@ -96,7 +97,7 @@ const mockRequestInfo = {
 };
 ```
 
-Before assuming a failure is the rebase's fault, confirm whether the same test fails on the pre-rebase tip (`git show origin/ditec:<file>` / a throwaway worktree). It saves chasing a non-existent regression.
+Before assuming a failure is the rebase's fault, confirm whether the same test fails on the pre-rebase tip (`git show main:<file>` / a throwaway worktree on the pre-rebase tip). It saves chasing a non-existent regression.
 
 ### Rule 4 — Add `test/tsconfig.json` for the editor, not the build
 
@@ -114,21 +115,21 @@ The fix is a thin editor-only config (already in the tree) — do not delete it 
 
 After adding it, run **TypeScript: Restart TS Server** — stale language-server analysis persists on already-open files until the server reloads.
 
-### Rule 5 — `package-lock.json` conflicts: take the newer tree, then regenerate
+### Rule 5 — Lock file conflicts: take the newer tree, then regenerate
 
-`package-lock.json` conflicts on nearly every rebase. Don't hand-merge it — regeneration makes the `--ours`/`--theirs` choice almost irrelevant, so just pick either committed side and re-derive:
+The fork ships `npm-shrinkwrap.json` instead of `package-lock.json`, so a rebase can conflict on either file (upstream still has `package-lock.json`). Don't hand-merge — regeneration makes the `--ours`/`--theirs` choice almost irrelevant, so just pick either committed side and re-derive:
 
 ```bash
-# NOTE: during `git rebase ditec onto main`, the sides are SWAPPED vs a merge:
-#   --ours   = the base you're replaying onto (upstream main)  ← the newer tree here
-#   --theirs = the ditec commit being applied
-git checkout --ours package-lock.json     # take upstream main's lockfile during a rebase
+# NOTE: during `git rebase upstream`, the sides are SWAPPED vs a merge:
+#   --ours   = the base you're replaying onto (upstream)  ← the newer tree here
+#   --theirs = our commit being applied
+git checkout --ours package-lock.json     # take upstream's lockfile during a rebase
 npm install                               # regenerate a coherent lockfile (authoritative step)
 ```
 
 The `npm install` regeneration is what actually matters; the checkout just gives it a clean starting point.
 
-The fork ships `npm-shrinkwrap.json` (see the fork-management doc, section 7) so that `npx github:` installs honor pinned versions. After the lockfile is regenerated, convert it back and keep `win-sso` pinned to an exact version in `package.json`:
+The fork publishes `npm-shrinkwrap.json` (see [fork-management](../best-practices/fork-management-github-install-2026-06-10.md)) so that installs of the package honor pinned versions. After the lockfile is regenerated, convert it back and keep `win-sso` pinned to an exact version in `package.json`. `package.json` must still list `npm-shrinkwrap.json` in `files`, and `build.yml` must still check `npm-shrinkwrap.json` instead of `package-lock.json`:
 
 ```bash
 npm install --package-lock-only
@@ -163,11 +164,19 @@ Select-String -Path src/tools/test-plans.ts -Pattern '7\.1-preview\.3'          
 
 ### Rule 8 — `server.json`: drop upstream's cloud-only `remotes` and `packages`
 
-Upstream adds cloud-only fields to `server.json` — a `remotes` block pointing at `mcp.dev.azure.com` and a `packages` entry for the npm `@microsoft/azure-devops` release. Neither applies to the on-prem fork: the cloud remote is meaningless against an on-prem Server, and the fork installs via **direct GitHub**, not npm. On conflict, **keep ours** (the fork manifest that omits both). Verify after rebase that `server.json` still has no `remotes` / `packages` / `mcp.dev.azure.com`.
+Upstream adds cloud-only fields to `server.json` — a `remotes` block pointing at `mcp.dev.azure.com` and a `packages` entry for the npm `@microsoft/azure-devops` release. Neither applies to the on-prem fork: the cloud remote is meaningless against an on-prem Server, and the fork installs via **npm** (`@mm6502/azure-devops-mcp`) or direct GitHub, not the upstream `@azure-devops/mcp` package. On conflict, **keep ours** (the fork manifest that omits both). Also keep ours for the identity fields in `package.json` (`name`, `mcpName`, `author`, `homepage`, `bugs`, `repository`) and the `prepublishOnly` script. Verify after rebase that `server.json` still has no `remotes` / `packages` / `mcp.dev.azure.com`.
 
 ### Rule 9 — Publish with `--force-with-lease`, and read a rejection as a signal
 
-The rebase rewrites `ditec`'s history, so publishing requires a force push. Always use the lease: `git push --force-with-lease origin ditec`, **never** plain `--force`. A rejection is not something to power through — it means `origin/ditec` moved since the safety ref was taken (a concurrent push). Inspect it (`git fetch origin ditec; git log --oneline -3 origin/ditec`), coordinate if it is real work, else reset to the backup ref and retry. Then realign local `main`: `git checkout main; git merge --ff-only origin/main; git checkout ditec`.
+The rebase rewrites `main`'s history, so publishing requires a force push. Always use the lease: `git push --force-with-lease github main`, **never** plain `--force`. A rejection is not something to power through — it means `github/main` moved since the safety ref was taken (a concurrent push). Inspect it (`git fetch github main; git log --oneline -3 github/main`), coordinate if it is real work, else reset to the backup ref and retry.
+
+## Why This Matters
+
+### Rule 10 — `README.md` is ours as a whole; upstream's other documents are theirs
+
+The fork's `README.md` is a complete rewrite (it is also the package page on npmjs.com). Do not merge it line by line: upstream's README is cloud-first, and a clean-looking merge of its unrelated hunks would bring cloud instructions back into ours. During a rebase take our side of the whole file (sides are swapped, so `git checkout --theirs README.md`), then read upstream's README diff once for anything worth copying by hand (for example a new tool domain, which also has to be added to the domain list in our README and to `src/shared/domains.ts`).
+
+`docs/GETTINGSTARTED.md`, `docs/FAQ.md`, `docs/HOWTO.md`, `docs/EXAMPLES.md` and `docs/TOOLSET.md` are upstream documents that we do not edit; on conflict take upstream's version. They describe the cloud service and name the upstream package `@azure-devops/mcp`. Our documents are `README.md`, `docs/TROUBLESHOOTING.md` (edited, merge by hand) and everything under `docs/solutions/`.
 
 ## Why This Matters
 
@@ -177,8 +186,8 @@ Separating rebase-caused failures (Rules 1–2) from pre-existing drift (Rule 3)
 
 ## When to Apply
 
-- Every time `ditec` is rebased onto or merged with the refreshed `main` upstream mirror.
-- Whenever a conflict lands in `src/utils.ts`, a `*.test.ts` URL assertion, `src/sspi-handler.ts`, or `package-lock.json`.
+- Every time `main` is rebased onto or merged with the refreshed `upstream` mirror.
+- Whenever a conflict lands in `src/utils.ts`, a `*.test.ts` URL assertion, `src/sspi-handler.ts`, or `npm-shrinkwrap.json` / `package-lock.json`.
 - When post-rebase tests go red or the editor flags `jest` namespace errors.
 
 ## Examples
@@ -206,8 +215,11 @@ Conflict-resolution cheat sheet:
 | `test/**/*.test.ts` (version in URL asserts) | **7.1 to match code**                 | Tests assert URL construction, not a live server                                              |
 | `src/sspi-handler.ts`                        | **ours**                              | On-prem SSPI/Negotiate handshake is fork-specific                                             |
 | `test/tsconfig.json`                         | **ours (keep it)**                    | Editor-only `@types/jest` association; not in build                                           |
-| `package-lock.json`                          | **newer tree, then `npm install`**    | Hand-merging lockfiles corrupts them                                                          |
+| `npm-shrinkwrap.json` / `package-lock.json`  | **newer tree, then `npm install`**    | Hand-merging lockfiles corrupts them; convert back to a shrinkwrap (Rule 5)                   |
 | `src/tools/*.ts` hit by a consolidation PR   | **theirs (structure) + re-port ours** | Consolidation renamed/merged the handler; port the fix's intent, then grep to verify (Rule 7) |
 | `server.json` (`remotes` / `packages`)       | **ours (drop cloud fields)**          | Cloud remote + npm package don't apply on-prem (Rule 8)                                       |
+| `README.md`                                  | **ours, always, whole file**          | Rewritten for the fork; upstream's is cloud-first (Rule 10)                                   |
+| `mcp.json`                                   | **ours**                              | Development config of the fork (`.mcp.json` is git-ignored)                                   |
+| `docs/GETTINGSTARTED.md`, `FAQ`, `HOWTO`, …  | **theirs (upstream)**                 | Upstream cloud documents we do not maintain (Rule 10)                                         |
 
-Publishing the rebased branch: `git push --force-with-lease origin ditec` — never plain `--force` (Rule 9).
+Publishing the rebased branch: `git push --force-with-lease github main` — never plain `--force` (Rule 9).

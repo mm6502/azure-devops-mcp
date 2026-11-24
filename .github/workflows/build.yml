@@ -117,8 +117,8 @@ jobs:
             Write-Host "Version mismatch detected. Please ensure that the version information in version.ts is up to date with package.json."
             exit 1
           }
-          git diff --exit-code ./package-lock.json
+          git diff --exit-code ./npm-shrinkwrap.json
           if (!$?) {
-            Write-Host "Please run 'npm install' to update package-lock.json and add changes to the commit."
+            Write-Host "Please run 'npm install' to update npm-shrinkwrap.json and add changes to the commit."
             exit 1
           }

@@ -1,333 +1,95 @@
-# ⭐ Azure DevOps MCP Server
+# Azure DevOps MCP Server (on-prem fork)
 
-> [!IMPORTANT]
-> The Azure DevOps Remote MCP Server is now available in public preview for all organizations. We recommend migrating to the [Remote MCP Server](https://learn.microsoft.com/en-us/azure/devops/mcp-server/remote-mcp-server) going forward.
->
-> [Learn more](#-remote-mcp-server-recommended)
+MCP server that gives AI agents access to Azure DevOps. This is a fork of [microsoft/azure-devops-mcp](https://github.com/microsoft/azure-devops-mcp) that adds support for **on-premises Azure DevOps Server / TFS** with Windows single sign-on (SSPI) or a personal access token. It is not affiliated with or endorsed by Microsoft. Upstream targets the cloud service and is not merged automatically, because it would replace the API version 7.1 that on-prem servers need.
 
-This project provides Azure DevOps MCP tooling for AI agents, with a **remote-first** onboarding experience and a local server option when you need it.
+Package: [`@mm6502/azure-devops-mcp`](https://www.npmjs.com/package/@mm6502/azure-devops-mcp) · Licence: [MIT](./LICENSE.md)
 
-## 📄 Table of Contents
+## Quick start
 
-1. [📺 Overview](#-overview)
-2. [🏆 Expectations](#-expectations)
-3. [🚀 Remote MCP Server (Recommended)](#-remote-mcp-server-recommended)
-4. [⚙️ Supported Tools](#️-supported-tools)
-5. [🔌 Local MCP Server Installation (Optional)](#-local-mcp-server-installation-optional)
-6. [🌏 Using Domains (local)](#-using-domains-local)
-7. [🐥 Project and Team Defaults (local)](#-project-and-team-defaults-local)
-8. [📝 Troubleshooting](#-troubleshooting)
-9. [🎩 Examples & Best Practices](#-examples--best-practices)
-10. [🙋‍♀️ Frequently Asked Questions](#️-frequently-asked-questions)
-11. [📌 Contributing](#-contributing)
+Requirements: Node.js 22.15 or newer. SSPI needs Windows on a domain-joined machine and a server with Negotiate/NTLM enabled.
 
-## 📺 Overview
-
-The Azure DevOps MCP Server brings Azure DevOps context to your agents. Try prompts like:
-
-- "List my ADO projects"
-- "List ADO Builds for 'Contoso'"
-- "List ADO Repos for 'Contoso'"
-- "List test plans for 'Contoso'"
-- "List teams for project 'Contoso'"
-- "List iterations for project 'Contoso'"
-- "List my work items for project 'Contoso'"
-- "List work items in current iteration for 'Contoso' project and 'Contoso Team'"
-- "List all wikis in the 'Contoso' project"
-- "Create a wiki page '/Architecture/Overview' with content about system design"
-- "Update the wiki page '/Getting Started' with new onboarding instructions"
-- "Get the content of the wiki page '/API/Authentication' from the Documentation wiki"
-
-## 🏆 Expectations
-
-The Azure DevOps MCP Server is built around tools that are concise, simple, focused, and easy to use, with each one designed for a specific scenario. We intentionally avoid creating complex tools that try to do too much. The goal is to provide a thin abstraction layer over the REST APIs that makes data access straightforward while allowing the language model to handle the more complex reasoning.
-
-## 🚀 Remote MCP Server (Recommended)
-
-The Azure DevOps **Remote MCP Server** is now available in [public preview](https://devblogs.microsoft.com/devops/azure-devops-remote-mcp-server-public-preview).
-
-Over time, the Remote MCP Server will replace this local MCP Server. We will continue to support the local server for now, but future investments will primarily focus on the remote experience.
-
-We encourage all users of the local MCP Server to begin migrating to the Remote MCP Server.
-
-If you encounter issues with tools, need support, or have a feature request, you can report an issue using the [Remote MCP Server issue template](https://github.com/microsoft/azure-devops-mcp/issues/new?template=remote-mcp-server-issue.md). During the preview period, we will track Remote MCP Server issues through this repository.
-
-> [!WARNING]
-> Internal Microsoft users of the Remote MCP Server should **not** create issues in this repository. Please use the dedicated Teams channel instead.
-
-For complete instructions, see the [Remote MCP Server onboarding documentation](https://learn.microsoft.com/en-us/azure/devops/mcp-server/remote-mcp-server?view=azure-devops).
-
-### Quick start with `.vscode/mcp.json`
-
-Use this configuration to connect directly to the Azure DevOps-hosted endpoint using streamable HTTP transport:
+Add the server to your MCP client configuration (for example `.mcp.json` or `.vscode/mcp.json`). Replace the URL with your collection URL:
 
 ```json
 {
-  "servers": {
-    "ado-remote-mcp": {
-      "url": "https://mcp.dev.azure.com/{organization}",
-      "type": "http"
-    }
-  },
-  "inputs": []
-}
-```
-
-See [documentation](https://learn.microsoft.com/en-us/azure/devops/mcp-server/remote-mcp-server?view=azure-devops#mcpjson-configuration) for additional configuration options.
-
-After saving `.vscode/mcp.json`, start the server from the MCP view in VS Code, then run a prompt like `List ADO projects`.
-
-## ⚙️ Supported Tools
-
-See the [Available Tools](https://learn.microsoft.com/en-us/azure/devops/mcp-server/remote-mcp-server?view=azure-devops#available-tools) documentation for the complete list of available remote tools.
-
-For a comprehensive list of local tools, see [TOOLSET.md](./docs/TOOLSET.md).
-
-## 🔌 Local MCP Server Installation (Optional)
-
-> [!IMPORTANT]
-> Start with the Remote MCP Server first. Use the local MCP Server only if your scenario specifically requires a local `stdio` setup.
-
-Use this section if you specifically need the local `stdio` server experience. For most users, start with the [Remote MCP Server](#-remote-mcp-server-recommended) section above.
-
-For the best experience, use Visual Studio Code and GitHub Copilot. See the [getting started documentation](./docs/GETTINGSTARTED.md) to use our MCP Server with other tools such as Visual Studio 2022, Codex, Claude Code, Cursor, Opencode, and Kilocode.
-
-### Prerequisites
-
-1. Install [VS Code](https://code.visualstudio.com/download) or [VS Code Insiders](https://code.visualstudio.com/insiders)
-2. Install [Node.js](https://nodejs.org/en/download) 20+
-3. Open VS Code in an empty folder
-
-### Installation
-
-#### 🧨 Install from Public Feed
-
-This installation method is the easiest for all users of Visual Studio Code.
-
-🎥 [Watch this quick start video to get up and running in under two minutes!](https://youtu.be/EUmFM6qXoYk)
-
-##### Steps
-
-In your project, add a `.vscode\mcp.json` file with the following content:
-
-```json
-{
-  "inputs": [
-    {
-      "id": "ado_org",
-      "type": "promptString",
-      "description": "Azure DevOps organization name  (e.g. 'contoso')"
-    }
-  ],
-  "servers": {
+  "mcpServers": {
     "ado": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@azure-devops/mcp", "${input:ado_org}"]
+      "args": ["-y", "@mm6502/azure-devops-mcp@latest", "https://your-server/tfs/YourCollection"],
+      "env": { "NODE_OPTIONS": "--use-system-ca" }
     }
   }
 }
 ```
 
-🔥 To stay up to date with the latest features, you can use our nightly builds. Simply update your `mcp.json` configuration to use `@azure-devops/mcp@next`. Here is an updated example:
+VS Code's own `mcp.json` uses the key `servers` instead of `mcpServers`; the rest is the same.
 
-```json
-{
-  "inputs": [
-    {
-      "id": "ado_org",
-      "type": "promptString",
-      "description": "Azure DevOps organization name  (e.g. 'contoso')"
-    }
-  ],
-  "servers": {
-    "ado": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@azure-devops/mcp@next", "${input:ado_org}"]
-    }
-  }
-}
+On Windows with an on-prem URL, SSPI is selected automatically and no credentials are needed. `NODE_OPTIONS=--use-system-ca` makes Node trust the Windows certificate store (internal CA).
+
+For a personal access token add `"--authentication", "pat"` to `args` and set `PERSONAL_ACCESS_TOKEN` in `env` to the base64 encoding of `<email>:<pat>` (the e-mail can be any non-empty string, only the token part is used). Do not commit tokens.
+
+### Installing and updating
+
+- **`@latest`** (above): every start checks the registry (a fraction of a second) and picks up new releases. The first start after a release installs about 270 dependencies, which takes 35 s to 98 s on Windows; later starts take a few seconds.
+- **Pinned version** (`@mm6502/azure-devops-mcp@1.0.1`): no surprise updates. Change the number to update, and use it if a release misbehaves.
+- **Global install** (`npm i -g @mm6502/azure-devops-mcp`, command `mcp-server-azuredevops`): instant start, but it never updates itself.
+- `npx` does not work inside a clone of this repository (same package name); see [Development](#development).
+
+## Options
+
+| Option                        | Meaning                                                                                                                                                                                      |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<organization>`              | Collection URL for on-prem (`https://server/tfs/Collection`) or organization name for the cloud service.                                                                                     |
+| `-a, --authentication <type>` | `sspi` (on-prem, Windows), `pat`, `env`/`envvar`, `azcli`, `interactive` (cloud). On-prem URLs on Windows default to `sspi`.                                                                 |
+| `-d, --domains <list>`        | Load only some tool groups (default `all`): `core`, `work`, `work-items`, `repositories`, `search`, `test-plans`, `wiki`, `pipelines`, `advanced-security`, `mcp-apps`. Keep `core` enabled. |
+| `-t, --tenant <id>`           | Tenant for `interactive` and `azcli` (cloud).                                                                                                                                                |
+| `--allow-untrusted-cert`      | Disable TLS verification. Insecure, last resort. Prefer `NODE_OPTIONS=--use-system-ca` or `NODE_EXTRA_CA_CERTS=<ca-bundle.pem>`.                                                             |
+| `--allow-http`                | Allow `http://` URLs (credentials travel in cleartext).                                                                                                                                      |
+
+Example that loads only work item tools: `"args": ["-y", "@mm6502/azure-devops-mcp@latest", "https://your-server/tfs/YourCollection", "-d", "core", "work", "work-items"]`.
+
+Default project and team (so tools skip the selection prompts) come from environment variables in `env`: `ado_mcp_project` and `ado_mcp_team`.
+
+Logs go to stderr only. Set `LOG_LEVEL` to `debug` in `env` for details; see [troubleshooting](./docs/TROUBLESHOOTING.md) for where to find them.
+
+Supported on-prem versions: Azure DevOps Server 2020 and newer (API 6.0+, requests use 7.1). The list of tools is in [docs/TOOLSET.md](./docs/TOOLSET.md); example prompts are in [docs/EXAMPLES.md](./docs/EXAMPLES.md).
+
+## Development
+
+```bash
+npm ci
+npm run build
 ```
 
-Save the file, then click 'Start'.
-
-![start mcp server](./docs/media/start-mcp-server.gif)
-
-In chat, switch to [Agent Mode](https://code.visualstudio.com/blogs/2025/02/24/introducing-copilot-agent-mode).
-
-Click "Select Tools" and choose the available tools.
-
-![configure mcp server tools](./docs/media/configure-mcp-server-tools.gif)
-
-Open GitHub Copilot Chat and try a prompt like `List ADO projects`. The first time an ADO tool is executed browser will open prompting to login with your Microsoft account. Please ensure you are using credentials matching selected Azure DevOps organization.
-
-> 💥 We strongly recommend creating a `.github\copilot-instructions.md` in your project. This will enhance your experience using the Azure DevOps MCP Server with GitHub Copilot Chat.
-> To start, just include "`This project uses Azure DevOps. Always check to see if the Azure DevOps MCP server has a tool relevant to the user's request`" in your copilot instructions file.
-
-See the [getting started documentation](./docs/GETTINGSTARTED.md) to use our MCP Server with other tools such as Visual Studio 2022, Codex, Claude Code, and Cursor.
-
-## 🌏 Using Domains (local)
-
-Azure DevOps exposes a large surface area. As a result, our Azure DevOps MCP Server includes many tools. To keep the toolset manageable, avoid confusing the model, and respect client limits on loaded tools, use Domains to load only the areas you need. Domains are named groups of related tools (for example: core, work, work-items, repositories, wiki). Add the `-d` argument and the domain names to the server args in your `mcp.json` to list the domains to enable.
-
-For example, use `"-d", "core", "work", "work-items"` to load only Work Item related tools (see the example below).
+To run the server from the clone, create a `.mcp.json` in the repository root (it is listed in `.gitignore`, so your collection URL never gets committed):
 
 ```json
 {
-  "inputs": [
-    {
-      "id": "ado_org",
-      "type": "promptString",
-      "description": "Azure DevOps organization name  (e.g. 'contoso')"
-    }
-  ],
-  "servers": {
-    "ado_with_filtered_domains": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@azure-devops/mcp", "${input:ado_org}", "-d", "core", "work", "work-items"]
-    }
-  }
-}
-```
-
-Domains that are available are: `core`, `work`, `work-items`, `search`, `test-plans`, `repositories`, `wiki`, `pipelines`, `advanced-security`
-
-We recommend that you always enable `core` tools so that you can fetch project level information.
-
-> By default all domains are loaded
-
-## 🐥 Project and Team Defaults (local)
-
-You can also configure default Azure DevOps project and team values from `.vscode/mcp.json` using `project` and `team`, so tools can skip selection prompts.
-
-### Example `.vscode/mcp.json`
-
-```json
-{
-  "servers": {
+  "mcpServers": {
     "ado": {
       "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@azure-devops/mcp", "myorg", "--authentication", "azcli"],
+      "command": "node",
+      "args": ["./dist/index.js", "https://your-server/tfs/YourCollection", "--authentication", "sspi"],
+      "tools": ["*"],
       "env": {
-        "ado_mcp_project": "Contoso",
-        "ado_mcp_team": "Fabrikam Team"
+        "LOG_LEVEL": "debug",
+        "NODE_OPTIONS": "--use-system-ca"
       }
     }
   }
 }
 ```
 
-## 🏢 Azure DevOps Server (On-Premise)
+Run `npm run build` again after changing the source. The tracked [mcp.json](./mcp.json) is an alternative that starts the globally installed command `mcp-server-azuredevops` and asks for the collection URL.
 
-This fork supports connecting to on-premise Azure DevOps Server instances. Pass the full collection URL instead of an organization name:
+Useful commands: `npm test`, `npm run validate-tools`, `npm run eslint-fix`, `npm run format`, `npm run inspect` (MCP Inspector). See [CONTRIBUTING.md](./CONTRIBUTING.md) and [AGENTS.md](./AGENTS.md).
 
-```bash
-mcp-server-azuredevops https://your-server/tfs/YourCollection --authentication pat
-```
+## Documentation
 
-**mcp.json configuration:**
+- [Troubleshooting](./docs/TROUBLESHOOTING.md): start-up problems, logs, cache, certificates.
+- [Fork management](./docs/solutions/best-practices/fork-management-github-install-2026-06-10.md): branches, releases, installation.
+- [Rebasing onto upstream](./docs/solutions/conventions/rebasing-on-prem-fork-onto-upstream.md): what to keep and what to take.
+- `docs/GETTINGSTARTED.md`, `docs/FAQ.md`, `docs/HOWTO.md`: upstream documents for the cloud service. They still name the upstream package `@azure-devops/mcp`.
 
-```json
-{
-  "mcpServers": {
-    "azuredevops-onprem": {
-      "command": "npx",
-      "args": ["-y", "@anthropic/azure-devops-mcp", "https://your-server/tfs/YourCollection", "--authentication", "pat"],
-      "env": {
-        "PERSONAL_ACCESS_TOKEN": "<base64-encoded-pat>"
-      }
-    }
-  }
-}
-```
-
-**TLS / Certificates:**
-
-- For self-signed or internal CA certificates, set `NODE_EXTRA_CA_CERTS=/path/to/ca-bundle.pem`
-- As a last resort: `--allow-untrusted-cert` (disables all TLS verification — insecure)
-- For non-TLS servers: `--allow-http` (required for `http://` URLs)
-
-**Supported versions:** Azure DevOps Server 2020+ (API version 6.0+)
-
-### Windows Single Sign-On (SSPI)
-
-On Windows domain-joined machines, SSPI authentication is **auto-selected** when an on-prem URL is detected — no credentials needed:
-
-```bash
-# SSPI is auto-selected on Windows — no PAT or password required
-mcp-server-azuredevops https://your-server/tfs/YourCollection
-```
-
-**mcp.json for SSPI (zero credentials):**
-
-```json
-{
-  "mcpServers": {
-    "azuredevops-onprem": {
-      "command": "npx",
-      "args": ["-y", "@anthropic/azure-devops-mcp", "https://your-server/tfs/YourCollection"]
-    }
-  }
-}
-```
-
-SSPI uses the current Windows user's domain credentials (Kerberos or NTLM) transparently. Override with `--authentication pat` if needed.
-
-**Requirements:** Windows, domain-joined machine (or reachable Kerberos realm), Azure DevOps Server with Negotiate/NTLM enabled.
-
-## 📝 Troubleshooting
-
-See the [Troubleshooting guide](./docs/TROUBLESHOOTING.md) for help with common issues and logging.
-
-## 🎩 Examples & Best Practices
-
-Explore example prompts in our [Examples documentation](./docs/EXAMPLES.md).
-
-For best practices and tips to enhance your experience with the MCP Server, refer to the [How-To guide](./docs/HOWTO.md).
-
-## 🙋‍♀️ Frequently Asked Questions
-
-For answers to common questions about the Azure DevOps MCP Server, see the [Frequently Asked Questions](./docs/FAQ.md).
-
-## 📌 Contributing
-
-We welcome contributions! During preview, please file issues for bugs, enhancements, or documentation improvements.
-
-See our [Contributions Guide](./CONTRIBUTING.md) for:
-
-- 🛠️ Development setup
-- ✨ Adding new tools
-- 📝 Code style & testing
-- 🔄 Pull request process
-
-> ⚠️ Please read the [Contributions Guide](./CONTRIBUTING.md) before creating a pull request.
-
-## 🤝 Code of Conduct
-
-This project follows the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For questions, see the [FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [open@microsoft.com](mailto:open@microsoft.com).
-
-## 📈 Project Stats
-
-[![Star History Chart](https://api.star-history.com/svg?repos=microsoft/azure-devops-mcp&type=Date)](https://star-history.com/#microsoft/azure-devops-mcp)
-
-## 🏆 Hall of Fame
-
-Thanks to all contributors who make this project awesome! ❤️
-
-[![Contributors](https://contrib.rocks/image?repo=microsoft/azure-devops-mcp)](https://github.com/microsoft/azure-devops-mcp/graphs/contributors)
-
-> Generated with [contrib.rocks](https://contrib.rocks)
-
-## License
-
-Licensed under the [MIT License](./LICENSE.md).
-
----
-
-_Trademarks: This project may include trademarks or logos for Microsoft or third parties. Use of Microsoft trademarks or logos must follow [Microsoft’s Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general). Third-party trademarks are subject to their respective policies._
-
-<!-- version: 2023-04-07 [Do not delete this line, it is used for analytics that drive template improvements] -->
+Microsoft, Azure DevOps and related names are trademarks of Microsoft. Their use here only describes compatibility.
