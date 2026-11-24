@@ -21,9 +21,10 @@ jobs:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
-      # Ensure npm 11.5.1 or later is installed
+      # Trusted publishing needs npm 11.5.1 or later. Pinned instead of @latest: npm 12 ignores
+      # npm-shrinkwrap.json in `npm ci`, which this fork ships instead of package-lock.json.
       - name: Update npm
-        run: npm install -g npm@latest
+        run: npm install -g npm@11.19.1
       - run: npm ci
       - run: npm run build --if-present
       - run: npm test
