@@ -7,6 +7,3 @@ coverage/
 npm-shrinkwrap.json
 
 *.log*
-
-# .vscode/mcp.json is a path reference, not valid JSON
-.vscode/mcp.json
