@@ -112,6 +112,14 @@ git push origin ditec --force-with-lease
 
 Note the `#ditec` suffix — without it, npm would fetch the default branch. Since we set `ditec` as default on GitHub, it would work without `#ditec` too, but being explicit is safer.
 
+### 7. Pin dependencies with `npm-shrinkwrap.json` (not `package-lock.json`)
+
+npm ignores `package-lock.json` when installing a package from a git URL, so every `npx github:...` cache miss resolves fresh versions from the ranges in `package.json`. `npm-shrinkwrap.json` is honored for git installs. This matters for native modules: `win-sso@1.4.0` (released 2026-11-16) moved its prebuild to `native/prebuilds/*/node.node`, which `node-gyp-build` does not match when `ELECTRON_RUN_AS_NODE` is set, and broke startup for fresh installs while cached ones kept working.
+
+- `win-sso` is pinned to the exact version `1.3.3` in `optionalDependencies`.
+- `npm-shrinkwrap.json` replaces `package-lock.json` (`npm install --package-lock-only && npm shrinkwrap`). After a rebase onto upstream, regenerate it instead of resolving lockfile conflicts by hand.
+- To verify a git install without publishing, `npm pack` the repo, install the tarball into an empty directory and check `node_modules/win-sso/package.json`.
+
 ## Why This Matters
 
 - **Without dist/ in git**: `npx github:...` fails because npm can't build without `typescript`, `@types/node`, and `shx` (devDependencies not installed for git deps)
