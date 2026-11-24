@@ -1,11 +1,11 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
-  "name": "ditec/azure-devops-onprem",
+  "name": "io.github.mm6502/azure-devops-mcp",
   "description": "MCP server for Azure DevOps Server (on-premise) with Windows integrated auth support.",
-  "version": "2.4.0",
+  "version": "2.8.1",
   "title": "Azure DevOps On-Prem",
   "repository": {
-    "url": "https://github.com/DITEC-Mracka/azure-devops-onprem",
+    "url": "https://github.com/mm6502/azure-devops-mcp",
     "source": "github"
   },
   "websiteUrl": "https://learn.microsoft.com/en-us/azure/devops/mcp-server/mcp-server-overview"

@@ -30,7 +30,7 @@ tags:
 
 ## Context
 
-The `ditec` branch of our `DITEC-Mracka/azure-devops-mcp` fork carries on-prem Azure DevOps Server support on top of upstream `microsoft/azure-devops-mcp`. Periodically we rebase `ditec` onto the refreshed `main` mirror to pick up upstream fixes.
+The `ditec` branch of the `mm6502/azure-devops-mcp` fork (published to npm as `@mm6502/azure-devops-mcp`; `DITEC-Mracka/azure-devops-mcp` is a downstream fork of it) carries on-prem Azure DevOps Server support on top of upstream `microsoft/azure-devops-mcp`. Periodically we rebase `ditec` onto the refreshed `main` mirror to pick up upstream fixes.
 
 The friction: upstream is a **cloud-first** codebase. Several upstream changes are actively wrong for on-prem TFS, so a naive "take upstream's side" conflict resolution silently reintroduces bugs the fork already fixed. On the last rebase this happened with API versions, and cascaded into 14 failing tests plus an editor-only TypeScript error — none of which the rebase itself reported as conflicts.
 
@@ -163,7 +163,7 @@ Select-String -Path src/tools/test-plans.ts -Pattern '7\.1-preview\.3'          
 
 ### Rule 8 — `server.json`: drop upstream's cloud-only `remotes` and `packages`
 
-Upstream adds cloud-only fields to `server.json` — a `remotes` block pointing at `mcp.dev.azure.com` and a `packages` entry for the npm `@microsoft/azure-devops` release. Neither applies to the on-prem fork: the cloud remote is meaningless against an on-prem Server, and the fork installs via **direct GitHub**, not npm. On conflict, **keep ours** (the fork manifest that omits both). Verify after rebase that `server.json` still has no `remotes` / `packages` / `mcp.dev.azure.com`.
+Upstream adds cloud-only fields to `server.json` — a `remotes` block pointing at `mcp.dev.azure.com` and a `packages` entry for the npm `@microsoft/azure-devops` release. Neither applies to the on-prem fork: the cloud remote is meaningless against an on-prem Server, and the fork installs via **npm** (`@mm6502/azure-devops-mcp`) or direct GitHub, not the upstream `@azure-devops/mcp` package. On conflict, **keep ours** (the fork manifest that omits both). Also keep ours for the identity fields in `package.json` (`name`, `mcpName`, `author`, `homepage`, `bugs`, `repository`) and the `prepublishOnly` script. Verify after rebase that `server.json` still has no `remotes` / `packages` / `mcp.dev.azure.com`.
 
 ### Rule 9 — Publish with `--force-with-lease`, and read a rejection as a signal
 

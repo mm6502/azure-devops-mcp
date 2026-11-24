@@ -1,22 +1,23 @@
 {
-  "name": "@azure-devops/mcp",
+  "name": "@mm6502/azure-devops-mcp",
   "version": "2.8.1",
-  "mcpName": "microsoft.com/azure-devops",
-  "description": "MCP server for interacting with Azure DevOps",
+  "mcpName": "io.github.mm6502/azure-devops-mcp",
+  "description": "MCP server for Azure DevOps, fork of microsoft/azure-devops-mcp with on-premise Azure DevOps Server support (SSPI/PAT)",
   "license": "MIT",
-  "author": "Microsoft Corporation",
-  "homepage": "https://github.com/microsoft/azure-devops-mcp",
-  "bugs": "https://github.com/microsoft/azure-devops-mcp/issues",
+  "author": "Michal Mracka (fork of Microsoft Corporation's azure-devops-mcp)",
+  "homepage": "https://github.com/mm6502/azure-devops-mcp#readme",
+  "bugs": "https://github.com/mm6502/azure-devops-mcp/issues",
   "repository": {
     "type": "git",
-    "url": "https://github.com/microsoft/azure-devops-mcp.git"
+    "url": "git+https://github.com/mm6502/azure-devops-mcp.git"
   },
   "type": "module",
   "bin": {
     "mcp-server-azuredevops": "dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "npm-shrinkwrap.json"
   ],
   "publishConfig": {
     "access": "public"
@@ -26,6 +27,7 @@
     "validate-tools": "tsc --noEmit && node scripts/build-validate-tools.js",
     "build": "tsc && shx chmod +x dist/*.js",
     "prepare": "husky",
+    "prepublishOnly": "npm run build && npm test",
     "watch": "tsc --watch",
     "inspect": "ALLOWED_ORIGINS=http://127.0.0.1:6274 npx @modelcontextprotocol/inspector@0.21.0 node dist/index.js",
     "start": "node -r tsconfig-paths/register dist/index.js",

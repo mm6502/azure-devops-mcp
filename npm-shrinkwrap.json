@@ -1,11 +1,11 @@
 {
-  "name": "@azure-devops/mcp",
+  "name": "@mm6502/azure-devops-mcp",
   "version": "2.8.1",
   "lockfileVersion": 3,
   "requires": true,
   "packages": {
     "": {
-      "name": "@azure-devops/mcp",
+      "name": "@mm6502/azure-devops-mcp",
       "version": "2.8.1",
       "license": "MIT",
       "dependencies": {

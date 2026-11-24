@@ -222,10 +222,10 @@ You can also configure default Azure DevOps project and team values from `.vscod
 
 ## 🏢 Azure DevOps Server (On-Premise)
 
-This fork supports connecting to on-premise Azure DevOps Server instances. Pass the full collection URL instead of an organization name:
+This fork (`@mm6502/azure-devops-mcp` on npm) supports connecting to on-premise Azure DevOps Server instances. Pass the full collection URL instead of an organization name:
 
 ```bash
-mcp-server-azuredevops https://your-server/tfs/YourCollection --authentication pat
+npx -y @mm6502/azure-devops-mcp https://your-server/tfs/YourCollection --authentication pat
 ```
 
 **mcp.json configuration:**
@@ -235,7 +235,7 @@ mcp-server-azuredevops https://your-server/tfs/YourCollection --authentication p
   "mcpServers": {
     "azuredevops-onprem": {
       "command": "npx",
-      "args": ["-y", "@anthropic/azure-devops-mcp", "https://your-server/tfs/YourCollection", "--authentication", "pat"],
+      "args": ["-y", "@mm6502/azure-devops-mcp", "https://your-server/tfs/YourCollection", "--authentication", "pat"],
       "env": {
         "PERSONAL_ACCESS_TOKEN": "<base64-encoded-pat>"
       }
@@ -258,7 +258,7 @@ On Windows domain-joined machines, SSPI authentication is **auto-selected** when
 
 ```bash
 # SSPI is auto-selected on Windows — no PAT or password required
-mcp-server-azuredevops https://your-server/tfs/YourCollection
+npx -y @mm6502/azure-devops-mcp https://your-server/tfs/YourCollection
 ```
 
 **mcp.json for SSPI (zero credentials):**
@@ -268,7 +268,7 @@ mcp-server-azuredevops https://your-server/tfs/YourCollection
   "mcpServers": {
     "azuredevops-onprem": {
       "command": "npx",
-      "args": ["-y", "@anthropic/azure-devops-mcp", "https://your-server/tfs/YourCollection"]
+      "args": ["-y", "@mm6502/azure-devops-mcp", "https://your-server/tfs/YourCollection"]
     }
   }
 }

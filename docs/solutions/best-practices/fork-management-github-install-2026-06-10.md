@@ -117,8 +117,33 @@ Note the `#ditec` suffix — without it, npm would fetch the default branch. Sin
 npm ignores `package-lock.json` when installing a package from a git URL, so every `npx github:...` cache miss resolves fresh versions from the ranges in `package.json`. `npm-shrinkwrap.json` is honored for git installs. This matters for native modules: `win-sso@1.4.0` (released 2026-11-16) moved its prebuild to `native/prebuilds/*/node.node`, which `node-gyp-build` does not match when `ELECTRON_RUN_AS_NODE` is set, and broke startup for fresh installs while cached ones kept working.
 
 - `win-sso` is pinned to the exact version `1.3.3` in `optionalDependencies`.
-- `npm-shrinkwrap.json` replaces `package-lock.json` (`npm install --package-lock-only && npm shrinkwrap`). After a rebase onto upstream, regenerate it instead of resolving lockfile conflicts by hand.
+- `npm-shrinkwrap.json` replaces `package-lock.json` (`npm install --package-lock-only && npm shrinkwrap`). It must also be listed in `files` of `package.json`, otherwise `npm pack`/`npm publish` leave it out (verified with `npm pack --dry-run`). After a rebase onto upstream, regenerate it instead of resolving lockfile conflicts by hand.
 - To verify a git install without publishing, `npm pack` the repo, install the tarball into an empty directory and check `node_modules/win-sso/package.json`.
+
+### 8. Publishing to npm (`@mm6502/azure-devops-mcp`)
+
+The fork is also published to npm as **`@mm6502/azure-devops-mcp`** (repo `mm6502/azure-devops-mcp`, default branch `ditec`). This is the preferred install path: a pinned registry tarball avoids the git clone, the per-start branch resolution and the `npx` cache corruption seen with `github:` installs. Direct GitHub installs keep working as a fallback.
+
+```json
+{
+  "servers": {
+    "ado": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@mm6502/azure-devops-mcp@2.8.1", "<org-or-collection-url>"]
+    }
+  }
+}
+```
+
+Release procedure (workflow `.github/workflows/release.yml`, OIDC trusted publishing, no npm token in the repo):
+
+1. Bump `version` in `package.json`, run `npm install --package-lock-only && npm shrinkwrap`, `npm run build`, commit (including `dist/` and `npm-shrinkwrap.json`).
+2. Tag `v<version>` and push the tag. The workflow runs `npm ci`, build, tests and `npm publish --provenance`. `prepublishOnly` repeats build and tests.
+3. One-time setup: the first version must be published manually (`npm publish --access public` after `npm login`), then configure the package's _Trusted Publisher_ on npmjs.com (GitHub user `mm6502`, repo `azure-devops-mcp`, workflow `release.yml`). `repository.url` in `package.json` must match the GitHub repo exactly or provenance fails.
+4. Because the scope is the maintainer's own, no upstream (`@azure-devops/mcp`) name is reused. MIT requires keeping the Microsoft copyright notice in `LICENSE.md`.
+
+The repo was transferred from `DITEC-Mracka/azure-devops-mcp` to `mm6502/azure-devops-mcp`. `DITEC-Mracka/azure-devops-mcp` is now a fork of it; the old `npx github:DITEC-Mracka/...#ditec` still resolves but only receives updates after "Sync fork" there.
 
 ## Why This Matters
 
